@@ -1,0 +1,24 @@
+.audio-player {
+    border-radius: var(--border-radius);
+    padding: var(--content-padding);
+    background-color: var(--surface-card);
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: center;
+    align-items: center;
+    gap: 1em;
+
+    .slider-wrapper {
+        display: flex;
+        flex-flow: row nowrap;
+        justify-content: center;
+        align-items: center;
+        gap: 0.7em;
+        .p-slider {
+            width: 100px;
+            display: flex;
+            flex: 1;
+            min-width: 0;
+        }
+    }
+}

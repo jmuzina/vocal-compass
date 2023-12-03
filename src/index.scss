@@ -12,8 +12,22 @@ code {
     monospace;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   width: 100svw;
   height: 100svh;
   overflow: hidden;
+}
+
+body {
+  &.dark-theme {
+    --compass-axis-color: #5b5b5b;
+    --compass-endpoint-color: #e1e1e1;
+  }
+
+  &.light-theme {
+    --compass-axis-color: #9b9b9b;
+    --compass-endpoint-color: black;
+  }
 }

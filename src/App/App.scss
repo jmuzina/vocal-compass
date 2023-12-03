@@ -16,5 +16,9 @@
         flex: 1;
         min-height: 0;
         overflow: auto;
+        & > * {
+            padding: var(--content-padding);
+            background-color: var(--surface-ground);
+        }
     }
 }

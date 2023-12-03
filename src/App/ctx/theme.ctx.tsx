@@ -42,6 +42,10 @@ const ThemeManagerProvider: React.FC<ThemeManagerProviderProps> = ({ children }:
         newLink.rel = 'stylesheet';
         newLink.id = STYLESHEET_LINK_DOM_NODE_IDS.PRIMEREACT;
         newLink.href = `${process.env.PUBLIC_URL}/static/css/${newTheme.primePath}`;
+        document.body.classList.forEach((className) => {
+            document.body.classList.remove(className);
+        })
+        document.body.classList.add(`${newTheme.code}-theme`);
     }
 
     const saveThemeChangeToStorage = (newTheme: ColorTheme): void => {

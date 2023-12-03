@@ -1,5 +1,6 @@
 $label-translation-amount: 1em;
-$arrow-translation-amount: 0.7em;
+$arrow-translation-amount: 0.75em;
+$axis-translation-amount: 0.1em;
 $arrow-offset: 0.6em;
 
 .axis-wrapper {
@@ -16,6 +17,7 @@ $arrow-offset: 0.6em;
         justify-content: flex-start;
 
         .line {
+            transform: translateX(calc(-1 * $axis-translation-amount));
             height: $line-max-dim;
             flex-direction: column-reverse;
 
@@ -43,6 +45,7 @@ $arrow-offset: 0.6em;
         grid-column: 1 / 3;
 
         .line {
+            transform: translateY($axis-translation-amount);
             width: $line-max-dim;
             flex-direction: row;
 
@@ -57,7 +60,7 @@ $arrow-offset: 0.6em;
                 }
 
                 &.end-arrow {
-                    transform: translateX($arrow-translation-amount);
+                    transform: translateY(0.1em) translateX($arrow-translation-amount);
                 }
             }
         }
@@ -68,14 +71,14 @@ $arrow-offset: 0.6em;
         width: 100%;
         display: flex;
         justify-content: space-between;
-        background-color: var(--surface-100);
+        background-color: var(--compass-axis-color);
 
         align-items: center;
         overflow: visible;
         .arrow {
             z-index: 20;
             font-size: 0.9em;
-            color: var(--surface-300);
+            color: var(--compass-endpoint-color);
         }
     }
 }

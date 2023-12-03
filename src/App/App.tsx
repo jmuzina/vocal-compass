@@ -7,6 +7,8 @@ import Footer from './components/Footer/Footer';
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { wait } from '@testing-library/user-event/dist/utils';
 import Compass from './components/Compass/Compass';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const App: React.FC = () => {
     const { activeTheme, switchTheme } = useThemeManager();
@@ -22,21 +24,19 @@ const App: React.FC = () => {
     }, []);
 
     return (
-        <div id="app">
-            {
-                isLoading
-                    ? <LoadingSpinner />
-                    : <BrowserRouter>
-                        <Header/>
-                        <main id="main">
-                            <Routes>
-                                <Route path="/" Component={Compass}/>
-                            </Routes>
-                        </main>
-                        <Footer/>
-                    </BrowserRouter>
-            }
-        </div>
+        <><ToastContainer theme={activeTheme.code} /><div id="app">
+            {isLoading
+                ? <LoadingSpinner />
+                : <BrowserRouter>
+                    <Header />
+                    <main id="main">
+                        <Routes>
+                            <Route path="/" Component={Compass} />
+                        </Routes>
+                    </main>
+                    <Footer />
+                </BrowserRouter>}
+        </div></>
     );
 }
 

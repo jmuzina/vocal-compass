@@ -17,3 +17,5 @@ export const COLOR_THEMES: {
 export const STYLESHEET_LINK_DOM_NODE_IDS: Record<string, DynamicStylesheetDOMNodeID> = {
     PRIMEREACT: 'primereact-color-theme'
 }
+
+export const RootElement = (): HTMLDivElement => document.getElementById('root') as HTMLDivElement;
