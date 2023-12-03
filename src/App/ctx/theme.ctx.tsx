@@ -1,5 +1,5 @@
 // ThemeManager.tsx
-import React, { createContext, useContext, useState, useMemo } from 'react';
+import React, { createContext, useContext, useState, useMemo, type FC } from 'react';
 import { type ColorTheme, type ColorThemeCode } from '../models/ColorTheme';
 import { type Maybe } from '../models/Maybe';
 import localstorageService from '../services/localstorage.service';
@@ -34,7 +34,7 @@ const ThemeContext = createContext<ThemeManagerContextProps>({
     toggleTarget: () => COLOR_THEMES.default
 });
 
-const ThemeManagerProvider: React.FC<ThemeManagerProviderProps> = ({ children }: { children: React.ReactNode }) => {
+const ThemeManagerProvider: FC<ThemeManagerProviderProps> = ({ children }: { children: React.ReactNode }) => {
     const [activeTheme, setActiveTheme] = useState<ColorTheme>(currentLocalStorageTheme() ?? COLOR_THEMES.default);
 
     const updateRootStyleImport = (newTheme: ColorTheme): void => {

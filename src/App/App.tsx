@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, type FC } from 'react';
 import './App.scss';
 import { ThemeManagerProvider, useThemeManager } from './ctx/theme.ctx';
 import LoadingSpinner from './components/LoadingSpinner/LoadingSpinner';
@@ -10,7 +10,7 @@ import Compass from './components/Compass/Compass';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-const App: React.FC = () => {
+const App: FC = () => {
     const { activeTheme, switchTheme } = useThemeManager();
     const [isLoading, setIsLoading] = useState<boolean>(true);
 

@@ -1,13 +1,13 @@
+import './AudioPlayer.scss';
 import Pause from '@mui/icons-material/Pause';
 import PlayArrow from '@mui/icons-material/PlayArrow';
 import VolumeUp from '@mui/icons-material/VolumeUp';
 import Trash from '@mui/icons-material/Delete';
 import { Button } from 'primereact/button';
 import { Tooltip } from 'primereact/tooltip';
-import './AudioPlayer.scss';
 import { Slider, type SliderChangeEvent } from 'primereact/slider';
-import React, { useState, useRef, useEffect } from 'react';
-import { formatTime } from '../../util/time-utils';
+import React, { useState, useRef, useEffect, type FC } from 'react';
+import { formatTime } from '../../../util/time-utils';
 import { ConfirmPopup, confirmPopup } from 'primereact/confirmpopup';
 import Loop from '@mui/icons-material/Loop';
 
@@ -19,7 +19,7 @@ interface AudioPlayerProps {
     /** Current play position, in seconds */
     currentPos: number
     /** Whether the player controls should be disabled */
-    disabled: boolean
+    disabled?: boolean
     /** Callback fired on change to the player's play/pause state */
     onPlayPause?: (isPlaying: boolean) => void
     /** Callback fired on change to the player's current play position */
@@ -32,7 +32,7 @@ interface AudioPlayerProps {
     onDeleted?: () => void
 }
 
-const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioBlob, duration, currentPos, onPlayPause, onCurrentPosUpdate, onVolumeUpdate, onCompleted, disabled, onDeleted }) => {
+const AudioPlayer: FC<AudioPlayerProps> = ({ audioBlob, duration, currentPos, onPlayPause, onCurrentPosUpdate, onVolumeUpdate, onCompleted, disabled, onDeleted }) => {
     if (duration <= 0) return (<></>);
     const audioRef = useRef<HTMLAudioElement>(null);
     const deleteButtonRef = useRef(null);
@@ -76,6 +76,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioBlob, duration, currentP
             audioElement.currentTime = 0;
             audioElement.pause();
         }
+        handlePlayPause();
         if (onCompleted) onCompleted();
     }
 
@@ -153,7 +154,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioBlob, duration, currentP
                 <Tooltip target={`.${baseDeleteButtonClass}`} />
                 <Button
                     ref={deleteButtonRef}
-                    disabled={disabled || isPlaying || deletionConfirmationVisible}
+                    disabled={!!disabled || isPlaying || deletionConfirmationVisible}
                     className={`${baseDeleteButtonClass} p-button-rounded p-button-danger p-button-outline}`}
                     icon={<Trash/>}
                     onClick={
