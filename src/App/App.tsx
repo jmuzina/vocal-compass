@@ -4,8 +4,9 @@ import { ThemeManagerProvider, useThemeManager } from './ctx/theme.ctx';
 import LoadingSpinner from './components/LoadingSpinner/LoadingSpinner';
 import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
-import { BrowserRouter } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { wait } from '@testing-library/user-event/dist/utils';
+import Compass from './components/Compass/Compass';
 
 const App: React.FC = () => {
     const { activeTheme, switchTheme } = useThemeManager();
@@ -25,12 +26,15 @@ const App: React.FC = () => {
             {
                 isLoading
                     ? <LoadingSpinner />
-                    : <>
+                    : <BrowserRouter>
                         <Header/>
                         <main id="main">
+                            <Routes>
+                                <Route path="/" Component={Compass}/>
+                            </Routes>
                         </main>
                         <Footer/>
-                    </>
+                    </BrowserRouter>
             }
         </div>
     );
@@ -39,9 +43,7 @@ const App: React.FC = () => {
 const ThemedApp: React.FC = () => {
     return (
         <ThemeManagerProvider>
-            <BrowserRouter>
-                <App />
-            </BrowserRouter>
+            <App />
         </ThemeManagerProvider>
     )
 }

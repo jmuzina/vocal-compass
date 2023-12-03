@@ -1,0 +1,27 @@
+.quadrant {
+    position: relative;
+
+    .quadrant-label {
+        position: absolute;
+        padding: var(--content-padding);
+        color: white;
+    }
+
+    &.top-left, &.top-right {
+        .quadrant-label {
+            top: 0;
+        }
+    }
+    &.bottom-left, &.bottom-right {
+        .quadrant-label {
+            bottom: 0;
+        }
+    }
+    &.top-right, &.bottom-right {
+        .quadrant-label {
+            right: 0;
+        }
+    }
+
+    
+}
