@@ -8,17 +8,19 @@ import MicOff from '@mui/icons-material/MicOff';
 import Mic from '@mui/icons-material/Mic';
 import { Button } from 'primereact/button';
 import { toast } from 'react-toastify';
-import { type IAudioRecorderAudioCompletionOutput } from '../../../models/AudioRecorder';
+import { type IAudioRecorderAnalysisOutput, type IAudioRecorderAudioCompletionOutput } from '../../../models/AudioRecorder';
 import { getLatestState } from '../../../util/async-utils';
+import { calculateFormantFrequency, calculatePitchFromUint8, uint8ToFloat32 } from '../../../util/audio-utils';
 
 interface AudioRecorderProps {
     recording: boolean
     onRecordingChange: (isRecording: boolean) => void
-    onRecordingCompleted: (output: IAudioRecorderAudioCompletionOutput) => void
+    onRecordingCompleted?: (output: IAudioRecorderAudioCompletionOutput) => void
+    onNewAnalysisAvailable?: (output: IAudioRecorderAnalysisOutput) => void
     disabled?: boolean
 }
 
-const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingCompleted, disabled, recording: parentRecording }) => {
+const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingCompleted, onNewAnalysisAvailable, disabled, recording: parentRecording }) => {
     const [recording, setRecording] = useState(parentRecording);
     const [loading, setLoading] = useState(false);
     const [audioCtx, setAudioCtx] = useState<Maybe<AudioContext>>(undefined);
@@ -35,19 +37,26 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
     // Stop playing audio when mic state changes
     useEffect(
         () => {
-            const prm = recording ? startRecording() : stopRecording()
+            const prm = recording ? startRecording() : stopRecording();
+
             void prm
-                .then(() => onRecordingChange(recording))
+                .then(async () => await getLatestState(setRecording))
+                .then((lastestRecording) => onRecordingChange(lastestRecording))
         },
         [recording]
     );
 
     useEffect(() => {
         if (enqueuedFullAudioBuffData) {
-            onRecordingCompleted(enqueuedFullAudioBuffData);
+            if (onRecordingCompleted) onRecordingCompleted(enqueuedFullAudioBuffData);
             setEnqueuedFullAudioBuffData(undefined);
         }
     }, [enqueuedFullAudioBuffData])
+
+    const toggleRecording = async (): Promise<void> => {
+        const currentRecording = await getLatestState(setRecording);
+        setRecording(!currentRecording);
+    }
 
     /** @returns Summarization of the in-progress recording length. Intended to update every second to show how long you've been speaking. */
     const getRecordingSummaryText = async (): Promise<string> => {
@@ -100,11 +109,13 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
             newAnalyzer.fftSize = 2048;
 
             const bufferLength = newAnalyzer.frequencyBinCount;
+            // const slidingWindowAudioBuffer = new Float32Array(bufferLength);
             const slidingWindowAudioBuffer = new Uint8Array(bufferLength);
 
             // Request microphone access
             const newStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             const newMicrophone = newCtx.createMediaStreamSource(newStream);
+            const sampleRate = newStream.getAudioTracks()[0].getSettings().sampleRate as number
             newMicrophone.connect(newAnalyzer);
 
             // Save audio to buffer on completion
@@ -136,6 +147,13 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
                 // @todo analyze `slidingWindowAudioBuffer` and update the compass graphic
                 // Some type of FFT analysis needed to figure out resonance.
                 // Pitch anaysis is much more straightforward
+
+                const pitchHz = calculatePitchFromUint8(slidingWindowAudioBuffer, sampleRate);
+                // const firstFormant = calculateFormantFrequency(uint8ToFloat32(slidingWindowAudioBuffer), sampleRate, newAnalyzer.fftSize);
+                // const vtl = calculateVocalTractLength(slidingWindowAudioBuffer, sampleRate);
+                // const firstFormant = calculateFormantFrequency(slidingWindowAudioBuffer, sampleRate);
+                /// console.log({ pitch, firstFormant });
+                if (onNewAnalysisAvailable) onNewAnalysisAvailable({ pitchHz, firstFormantHz: 0 });
 
                 // Wait for the next animation frame to process the next audio buffer
                 await new Promise<void>((resolve) => {
@@ -224,7 +242,7 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
                     className={micButtonClass()}
                     disabled={disabled}
                     icon={micIcon()}
-                    onClick={() => setRecording(!recording)}
+                    onClick={() => { void toggleRecording() }}
                 />
                 {recordingSummary()}
             </div>

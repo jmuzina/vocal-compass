@@ -64,7 +64,6 @@ $compass-padding: 0.2em;
         }
 
         #compass {
-            background: linear-gradient(to top right, #0000ff, #eb4fa2);
             width: $compass-wrapper-width;
             height: 100%;
             position: absolute;
@@ -129,5 +128,58 @@ $compass-padding: 0.2em;
             // hacky way to make the recording button appear center-algned while also not moving when summary text is populated
             transform: translateX(30px);
         }
+    }
+}
+
+#coordinate-dot {
+    position: absolute;
+    z-index: 10;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #fff;
+    box-shadow: 0 0 0 2px #000;
+    transform: translate(-50%, -50%);
+    transition: left 0.3s ease-in-out, bottom 0.3s ease-in-out;
+
+    #dot-detail {
+        background-color: var(--surface-d);
+        border-radius: var(--border-radius);
+        padding: 0.5em;
+        position: absolute;
+        top: 10px;
+        left: 10px;
+
+
+
+        width: max-content;
+        max-width: min(80svw, 250px);
+        height: max-content;
+        max-height: min(80svh, 100px);
+
+        .dot-detail-item {
+            display: flex;
+            flex-flow: row nowrap;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.3em;
+            border-bottom: 1px solid #fff;
+            gap: 0.4em;
+
+            &:last-child {
+                border-bottom: none;
+            }
+
+            .dot-detail-item-label {
+                font-weight: bold;
+            }
+
+            .dot-detail-item-value {
+                transition: color 0.3s ease-in-out;
+            }
+        }
+
+
+
     }
 }

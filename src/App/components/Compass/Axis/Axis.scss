@@ -2,6 +2,10 @@ $label-translation-amount: 1em;
 $arrow-translation-amount: 0.75em;
 $axis-translation-amount: 0.1em;
 $arrow-offset: 0.6em;
+$vertical-axis-translation-x: 1.1em;
+$vertical-axis-translation-y: 0.9em;
+$horizontal-axis-translation-x: 1.9em;
+$horizontal-axis-translation-y: 0.7em;
 
 .axis-wrapper {
     display: flex;
@@ -21,13 +25,13 @@ $arrow-offset: 0.6em;
             height: $line-max-dim;
             flex-direction: column-reverse;
 
-            .arrow {
-                &.start-arrow {
-                    transform: translateY($arrow-translation-amount);
+            .axis-endpoint {
+                flex-flow: row-reverse nowrap;
+                &.axis-start {
+                    transform: translateX(calc(-1 * $vertical-axis-translation-x)) translateY($vertical-axis-translation-y);
                 }
-
-                &.end-arrow {
-                    transform: translateY(calc(-1 * $arrow-translation-amount));
+                &.axis-end {
+                    transform: translateX(calc(-1 * $vertical-axis-translation-x)) translateY(calc(-1 * $vertical-axis-translation-y));
                 }
             }
 
@@ -54,13 +58,16 @@ $arrow-offset: 0.6em;
                 writing-mode: horizontal-tb;
             }
 
-            .arrow {
-                &.start-arrow {
-                    transform: translateX(calc(-1 * $arrow-translation-amount));
+            .axis-endpoint {
+                flex-flow: column nowrap;
+                &.axis-start {
+                    transform: translateX(calc(-1 * $horizontal-axis-translation-x)) translateY($horizontal-axis-translation-y);
                 }
-
-                &.end-arrow {
-                    transform: translateY(0.1em) translateX($arrow-translation-amount);
+                &.axis-end {
+                     transform: translateX($horizontal-axis-translation-x) translateY($horizontal-axis-translation-y);
+                }
+                .endpoint-label {
+                    transform: translateY(0em);
                 }
             }
         }
@@ -75,10 +82,20 @@ $arrow-offset: 0.6em;
 
         align-items: center;
         overflow: visible;
-        .arrow {
-            z-index: 20;
-            font-size: 0.9em;
-            color: var(--compass-endpoint-color);
+
+        .axis-endpoint {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            width: 50px;
+            .arrow {
+                z-index: 20;
+                font-size: 0.9em;
+                color: var(--compass-endpoint-color);
+            }
+            .endpoint-label {
+                //position: absolute;
+            }
         }
     }
 }

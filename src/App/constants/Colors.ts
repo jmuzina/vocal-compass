@@ -1,0 +1,4 @@
+export const COLOR_EXTREMITIES = {
+    MASCULINE: '#0000FF',
+    FEMININE: '#EB4FA2'
+}
