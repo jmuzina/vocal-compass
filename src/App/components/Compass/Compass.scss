@@ -12,6 +12,7 @@ $compass-padding: 0.2em;
     #compass-wrapper {
         $compass-wrapper-width: calc(min(100%, 900px) - $compass-padding);
         width: $compass-wrapper-width;
+        max-height: min(80svh, $compass-wrapper-width);
 
         position: relative;
         padding: $compass-padding;

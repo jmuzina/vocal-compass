@@ -106,7 +106,7 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ audioBlob, duration, currentPos, on
 
     const playButton = (): JSX.Element => {
         const basePlayButtonClass = 'play-button';
-        const playButtonClass = (): string => `${basePlayButtonClass} p-button-rounded p-button-${isPlaying ? 'warning active' : 'outlined'}`;
+        const playButtonClass = (): string => `${basePlayButtonClass} p-button-rounded p-button-${isPlaying ? 'success active' : 'outlined'}`;
         const playButtonTooltipLabel = (): string => isPlaying ? 'Stop playing audio' : 'Play audio';
         const playIcon = (): JSX.Element => {
             if (isPlaying) return <Pause/>;
@@ -214,11 +214,11 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ audioBlob, duration, currentPos, on
                         onEnded={handleClipEnded}
                         loop={loop}
                     />
+                    {deleteButton()}
                     {playButton()}
                     {loopButton()}
                     {positionScrubber()}
                     {volumeSlider()}
-                    {deleteButton()}
                 </>
             )}
         </div>
