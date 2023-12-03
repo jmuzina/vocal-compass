@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import './AudioRecorder.scss';
 import React, { useState, useEffect, type FC } from 'react';
 import { type Maybe } from '../../../models/Maybe';
@@ -8,6 +9,7 @@ import Mic from '@mui/icons-material/Mic';
 import { Button } from 'primereact/button';
 import { toast } from 'react-toastify';
 import { type IAudioRecorderAudioCompletionOutput } from '../../../models/AudioRecorder';
+import { getLatestState } from '../../../util/async-utils';
 
 interface AudioRecorderProps {
     recording: boolean
@@ -20,7 +22,6 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
     const [recording, setRecording] = useState(parentRecording);
     const [loading, setLoading] = useState(false);
     const [audioCtx, setAudioCtx] = useState<Maybe<AudioContext>>(undefined);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [startRecordingTime, setStartRecordingTime] = useState<Maybe<moment.Moment>>(undefined);
     const [stream, setStream] = useState<Maybe<MediaStream>>(undefined);
     const [microphone, setMicrophone] = useState<Maybe<MediaStreamAudioSourceNode>>(undefined);
@@ -29,17 +30,14 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
     const [recordingSummaryText, setRecordingSummaryText] = useState<string>('');
     const [summaryUpdateInterval, setSummaryUpdateInterval] = useState<Maybe<NodeJS.Timeout>>(undefined);
     const [enqueuedFullAudioBuffData, setEnqueuedFullAudioBuffData] = useState<Maybe<IAudioRecorderAudioCompletionOutput>>(undefined);
+    const [analyzingAudio, setAnalyzingAudio] = useState(false);
 
     // Stop playing audio when mic state changes
     useEffect(
         () => {
-            const recordingUpdatePromise = recording ? startRecording() : stopRecording();
-            recordingUpdatePromise
+            const prm = recording ? startRecording() : stopRecording()
+            void prm
                 .then(() => onRecordingChange(recording))
-                .catch((err) => {
-                    toast.error((err as Error)?.message);
-                    onRecordingChange(false);
-                });
         },
         [recording]
     );
@@ -52,16 +50,17 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
     }, [enqueuedFullAudioBuffData])
 
     /** @returns Summarization of the in-progress recording length. Intended to update every second to show how long you've been speaking. */
-    const getRecordingSummaryText = (): string => {
-        let retVal = '';
-        setStartRecordingTime((lastStartRecordingTime) => {
-            setRecording((lastRecording) => {
-                if (lastRecording && lastStartRecordingTime?.isValid()) retVal = formatTime(moment().diff(lastStartRecordingTime, 'milliseconds') / 1000);
-                return lastRecording;
-            })
-            return lastStartRecordingTime;
-        });
-        return retVal;
+    const getRecordingSummaryText = async (): Promise<string> => {
+        let lastRecordingTime: Maybe<moment.Moment> = moment(); let lastRecording = false;
+        await Promise.all([
+            getLatestState(setStartRecordingTime)
+                .then((t) => { lastRecordingTime = t }),
+            getLatestState(setRecording)
+                .then((r) => { lastRecording = r })
+        ]);
+        if (lastRecording && lastRecordingTime?.isValid()) return formatTime(moment().diff(lastRecordingTime, 'milliseconds') / 1000);
+
+        return '';
     }
 
     /** Clear the in-progress recording length summary text */
@@ -78,17 +77,18 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
         clearSummaryInterval();
         // Update the recording summary text every second
         setSummaryUpdateInterval(setInterval(() => {
-            setRecordingSummaryText(getRecordingSummaryText());
+            void getRecordingSummaryText()
+                .then((summaryText) => setRecordingSummaryText(summaryText))
         }, 1000))
         // Also give the summary text a good initial value for visual consistency
         setRecordingSummaryText('00:00');
     }
 
-    const processAudioBlobEvent = ($evt: BlobEvent): void => {
-        setStartRecordingTime((lastStartRecordingTime) => {
-            setEnqueuedFullAudioBuffData({ audio: $evt.data, durationSecs: moment().diff(lastStartRecordingTime, 'milliseconds') / 1000 });
-            return lastStartRecordingTime;
-        })
+    const processAudioBlobEvent = async ($evt: BlobEvent): Promise<Maybe<IAudioRecorderAudioCompletionOutput>> => {
+        const lastStartRecordingTime = await getLatestState(setStartRecordingTime);
+        const output = { audio: $evt.data, durationSecs: moment().diff(lastStartRecordingTime, 'milliseconds') / 1000 };
+        setEnqueuedFullAudioBuffData(output);
+        return output;
     }
 
     const startRecording = async (): Promise<void> => {
@@ -121,32 +121,40 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
             setStartRecordingTime(moment());
             restartSummaryInterval();
 
-            const processAudio = (): void => {
-                setRecording((latestMicOn) => {
-                    if (!latestMicOn) {
-                        // Stop processing if the microphone is turned off
-                        void stopRecording();
-                    } else {
-                        newAnalyzer.getByteFrequencyData(slidingWindowAudioBuffer);
+            const processAudio = async (): Promise<void> => {
+                const latestAnalyzingAudio = await getLatestState(setAnalyzingAudio);
+                if (latestAnalyzingAudio) return;
+                const latestIsRecording = await getLatestState(setRecording);
+                if (!latestIsRecording) {
+                    // Stop processing if the microphone is turned off
+                    return await stopRecording();
+                }
+                setAnalyzingAudio(true);
 
-                        // @todo analyze `slidingWindowAudioBuffer` and update the compass graphic
-                        // Some type of FFT analysis needed to figure out resonance.
-                        // Pitch anaysis is much more straightforward
+                newAnalyzer.getByteFrequencyData(slidingWindowAudioBuffer);
 
-                        requestAnimationFrame(() => processAudio());
-                    }
+                // @todo analyze `slidingWindowAudioBuffer` and update the compass graphic
+                // Some type of FFT analysis needed to figure out resonance.
+                // Pitch anaysis is much more straightforward
 
-                    return latestMicOn;
-                });
+                // Wait for the next animation frame to process the next audio buffer
+                await new Promise<void>((resolve) => {
+                    requestAnimationFrame(() => {
+                        resolve();
+                    })
+                })
+
+                setAnalyzingAudio(false);
+                return await processAudio();
             };
 
-            processAudio();
+            void processAudio();
 
             await newCtx.resume();
         // Microphone permission rejected or no devices found
         } catch (err) {
             toast.error((err as Error)?.message);
-            await stopRecording();
+            void stopRecording();
         } finally {
             setLoading(false);
         }
@@ -154,21 +162,44 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
 
     const stopRecording = async (): Promise<void> => {
         // Clear resources and disconnect microphone and analyzer
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            setStream(undefined);
-        }
 
-        if (audioCtx && audioCtx.state !== 'closed') await audioCtx.close();
+        const streamUpdate = getLatestState(setStream).then((latestStream) => {
+            if (latestStream) {
+                latestStream.getTracks().forEach(track => track.stop());
+                setStream(undefined);
+            }
+        })
 
-        if (microphone) setMicrophone(undefined);
+        const ctxUpdate = getLatestState(setAudioCtx).then(async (latestAudioCtx) => {
+            if (latestAudioCtx && latestAudioCtx.state !== 'closed') {
+                setAudioCtx(undefined);
+                return await latestAudioCtx.close();
+            }
+        })
 
-        if (analyzer) setAnalyzer(undefined);
+        const micUpdate = getLatestState(setMicrophone).then(async (latestMicrophone) => {
+            if (latestMicrophone) {
+                const latestMicrophoneAnalyzer = await getLatestState(setAnalyzer);
 
-        if (recorder) {
-            recorder.stop();
-            setRecorder(undefined);
-        }
+                if (latestMicrophoneAnalyzer) latestMicrophone?.disconnect(latestMicrophoneAnalyzer);
+                setMicrophone(undefined);
+            }
+        })
+
+        const analyzerUpdate = getLatestState(setAnalyzer).then(async (latestAnalyzer) => {
+            if (latestAnalyzer) {
+                setAnalyzer(undefined);
+            }
+        })
+
+        const recorderUpdate = getLatestState(setRecorder).then(async (latestRecorder) => {
+            if (latestRecorder) {
+                latestRecorder.stop();
+                setRecorder(undefined);
+            }
+        })
+
+        await Promise.all([streamUpdate, ctxUpdate, micUpdate, analyzerUpdate, recorderUpdate]);
 
         clearSummaryInterval();
     }

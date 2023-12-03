@@ -20,6 +20,8 @@ export default function Compass(): JSX.Element {
     useEffect(
         () => {
             if (recording && playing) setPlaying(false);
+            // Clear existing audio buffer
+            if (recording && fullAudioBuffData) setFullAudioBuffData(undefined);
         },
         [recording]
     );

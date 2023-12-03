@@ -10,6 +10,7 @@ import React, { useState, useRef, useEffect, type FC } from 'react';
 import { formatTime } from '../../../util/time-utils';
 import { ConfirmPopup, confirmPopup } from 'primereact/confirmpopup';
 import Loop from '@mui/icons-material/Loop';
+import { type Maybe } from '../../../models/Maybe';
 
 interface AudioPlayerProps {
     /** Raw audio to be played */
@@ -35,10 +36,9 @@ interface AudioPlayerProps {
 const AudioPlayer: FC<AudioPlayerProps> = ({ audioBlob, duration, currentPos, onPlayPause, onCurrentPosUpdate, onVolumeUpdate, onCompleted, disabled, onDeleted }) => {
     if (duration <= 0) return (<></>);
     const audioRef = useRef<HTMLAudioElement>(null);
-    const deleteButtonRef = useRef(null);
+    const [deleteButtonRef, setDeleteButtonRef] = useState<Maybe<Button> | null>(undefined);
     const [isPlaying, setIsPlaying] = useState(false);
     const [blobUrl, setBlobUrl] = useState<string | null>(null);
-    const [deletionConfirmationVisible, setDeletionConfirmationVisible] = useState(false);
     const [volume, setVolume] = useState(1);
     const [loop, setLoop] = useState(false);
 
@@ -144,7 +144,7 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ audioBlob, duration, currentPos, on
         )
     }
 
-    const deleteButton = (): JSX.Element => {
+    const deleteButton = (f = false): JSX.Element => {
         if (!onDeleted) return (<></>);
 
         const baseDeleteButtonClass = 'delete-button';
@@ -153,18 +153,17 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ audioBlob, duration, currentPos, on
                 <ConfirmPopup/>
                 <Tooltip target={`.${baseDeleteButtonClass}`} />
                 <Button
-                    ref={deleteButtonRef}
-                    disabled={!!disabled || isPlaying || deletionConfirmationVisible}
+                    ref={setDeleteButtonRef}
+                    disabled={!!disabled || isPlaying || !deleteButtonRef}
                     className={`${baseDeleteButtonClass} p-button-rounded p-button-danger p-button-outline}`}
                     icon={<Trash/>}
                     onClick={
-                        deleteButtonRef?.current
+                        deleteButtonRef
                             ? () => confirmPopup({
-                                target: deleteButtonRef.current as unknown as HTMLElement,
+                                target: deleteButtonRef as any as HTMLElement,
                                 message: 'Are you sure you want to delete this audio?',
                                 icon: 'pi pi-exclamation-triangle',
-                                accept: onDeleted,
-                                reject: () => setDeletionConfirmationVisible(false)
+                                accept: onDeleted
                             })
                             : () => {}
                     }
