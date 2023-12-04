@@ -1,3 +1,4 @@
+import { type IAudioRecorderAnalysisOutput } from '../models/AudioRecorder';
 import { clamp } from './math-utils';
 
 import FFT from 'fft.js';
@@ -234,3 +235,19 @@ export const calculateFormantFrequency = (
 
     return frequency;
 };
+
+export const analyzeAudio = (
+    analyzer: AnalyserNode,
+    sampleRate: number,
+    buff: Uint8Array = new Uint8Array(analyzer.frequencyBinCount)
+): IAudioRecorderAnalysisOutput => {
+    analyzer.getByteFrequencyData(buff);
+
+    const pitchHz = calculatePitchFromUint8(buff, sampleRate);
+
+    return { pitchHz, firstFormantHz: 0 };
+};
+
+export const nodesAreConnected = (node1: AudioNode, node2: AudioNode): boolean => {
+    return node1.context === node2.context;
+}

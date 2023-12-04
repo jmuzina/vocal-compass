@@ -10,7 +10,8 @@ import { Button } from 'primereact/button';
 import { toast } from 'react-toastify';
 import { type IAudioRecorderAnalysisOutput, type IAudioRecorderAudioCompletionOutput } from '../../../models/AudioRecorder';
 import { getLatestState } from '../../../util/async-utils';
-import { calculateFormantFrequency, calculatePitchFromUint8, uint8ToFloat32 } from '../../../util/audio-utils';
+import { analyzeAudio, calculateFormantFrequency, calculatePitchFromUint8, nodesAreConnected, uint8ToFloat32 } from '../../../util/audio-utils';
+import { readBlobAsUint8Array } from '../../../util/blob-utils';
 
 interface AudioRecorderProps {
     recording: boolean
@@ -49,7 +50,7 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
     useEffect(() => {
         if (enqueuedFullAudioBuffData) {
             if (onRecordingCompleted) onRecordingCompleted(enqueuedFullAudioBuffData);
-            setEnqueuedFullAudioBuffData(undefined);
+            else setEnqueuedFullAudioBuffData(undefined);
         }
     }, [enqueuedFullAudioBuffData])
 
@@ -94,8 +95,26 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
     }
 
     const processAudioBlobEvent = async ($evt: BlobEvent): Promise<Maybe<IAudioRecorderAudioCompletionOutput>> => {
-        const lastStartRecordingTime = await getLatestState(setStartRecordingTime);
-        const output = { audio: $evt.data, durationSecs: moment().diff(lastStartRecordingTime, 'milliseconds') / 1000 };
+        let latestAnalyzer: Maybe<AnalyserNode>; let latestAudioCtx: Maybe<AudioContext>;
+        await Promise.all([getLatestState(setAnalyzer).then((a) => { latestAnalyzer = a }), getLatestState(setAudioCtx).then((c) => { latestAudioCtx = c })]);
+        if (!latestAnalyzer || !latestAudioCtx) return;
+
+        let lastStartRecordingTime: Maybe<moment.Moment> = moment(); let rawBuf = new Uint8Array();
+        await Promise.all([
+            getLatestState(setStartRecordingTime)
+                .then((t) => { lastStartRecordingTime = t }),
+            readBlobAsUint8Array($evt.data)
+                .then((b) => { rawBuf = b })
+        ]);
+
+        const output: IAudioRecorderAudioCompletionOutput = {
+            audio: $evt.data,
+            durationSecs: moment().diff(lastStartRecordingTime, 'milliseconds') / 1000,
+            raw: rawBuf,
+            analyzer: latestAnalyzer,
+            ctx: latestAudioCtx,
+            fromChild: true
+        };
         setEnqueuedFullAudioBuffData(output);
         return output;
     }
@@ -104,7 +123,8 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
         try {
             clearSummaryInterval();
             setLoading(true);
-            const newCtx = new window.AudioContext();
+            const newCtx = audioCtx ?? new window.AudioContext();
+            if (audioCtx?.state !== 'running') await newCtx.resume();
             const newAnalyzer = newCtx.createAnalyser();
             newAnalyzer.fftSize = 2048;
 
@@ -142,18 +162,8 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
                 }
                 setAnalyzingAudio(true);
 
-                newAnalyzer.getByteFrequencyData(slidingWindowAudioBuffer);
-
-                // @todo analyze `slidingWindowAudioBuffer` and update the compass graphic
-                // Some type of FFT analysis needed to figure out resonance.
-                // Pitch anaysis is much more straightforward
-
-                const pitchHz = calculatePitchFromUint8(slidingWindowAudioBuffer, sampleRate);
-                // const firstFormant = calculateFormantFrequency(uint8ToFloat32(slidingWindowAudioBuffer), sampleRate, newAnalyzer.fftSize);
-                // const vtl = calculateVocalTractLength(slidingWindowAudioBuffer, sampleRate);
-                // const firstFormant = calculateFormantFrequency(slidingWindowAudioBuffer, sampleRate);
-                /// console.log({ pitch, firstFormant });
-                if (onNewAnalysisAvailable) onNewAnalysisAvailable({ pitchHz, firstFormantHz: 0 });
+                const analysis = analyzeAudio(newAnalyzer, newCtx.sampleRate, slidingWindowAudioBuffer);
+                if (onNewAnalysisAvailable) onNewAnalysisAvailable(analysis);
 
                 // Wait for the next animation frame to process the next audio buffer
                 await new Promise<void>((resolve) => {
@@ -189,9 +199,8 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
         })
 
         const ctxUpdate = getLatestState(setAudioCtx).then(async (latestAudioCtx) => {
-            if (latestAudioCtx && latestAudioCtx.state !== 'closed') {
-                setAudioCtx(undefined);
-                return await latestAudioCtx.close();
+            if (latestAudioCtx && latestAudioCtx.state !== 'suspended') {
+                return await latestAudioCtx.suspend();
             }
         })
 
@@ -199,14 +208,14 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
             if (latestMicrophone) {
                 const latestMicrophoneAnalyzer = await getLatestState(setAnalyzer);
 
-                if (latestMicrophoneAnalyzer) latestMicrophone?.disconnect(latestMicrophoneAnalyzer);
+                if (latestMicrophoneAnalyzer && nodesAreConnected(latestMicrophone, latestMicrophoneAnalyzer)) {
+                    try {
+                        latestMicrophone?.disconnect(latestMicrophoneAnalyzer);
+                    } catch (err) {
+                        // do nothing. They were already disconnected, but nodesAreConnected is currently imperfect
+                    }
+                }
                 setMicrophone(undefined);
-            }
-        })
-
-        const analyzerUpdate = getLatestState(setAnalyzer).then(async (latestAnalyzer) => {
-            if (latestAnalyzer) {
-                setAnalyzer(undefined);
             }
         })
 
@@ -217,7 +226,7 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
             }
         })
 
-        await Promise.all([streamUpdate, ctxUpdate, micUpdate, analyzerUpdate, recorderUpdate]);
+        await Promise.all([streamUpdate, ctxUpdate, micUpdate, recorderUpdate]);
 
         clearSummaryInterval();
     }

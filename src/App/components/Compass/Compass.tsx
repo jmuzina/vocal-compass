@@ -12,6 +12,7 @@ import { clamp } from '../../util/math-utils';
 import { getLatestState } from '../../util/async-utils';
 import { COLOR_EXTREMITIES } from '../../constants/Colors';
 import { interpolateHexColors } from '../../util/style-utils';
+import { analyzeAudio } from '../../util/audio-utils';
 
 /** Size in em of the axes. This is the width for the vertical axis, height for the horizontal axis. */
 const AXIS_SIZE = 0.5;
@@ -23,6 +24,7 @@ export default function Compass(): JSX.Element {
     const [recording, setRecording] = useState(false);
     const [playing, setPlaying] = useState(false);
     const [playCurPos, setPlayCurPos] = useState<number>(0);
+    const [lastCurPos, setLastCurPos] = useState<number>(0);
     const [fullAudioBuffData, setFullAudioBuffData] = useState<Maybe<IAudioRecorderAudioCompletionOutput>>(undefined);
     const [audioAnalysis, setAudioAnalysis] = useState<Maybe<IAudioRecorderAnalysisOutput>>(undefined);
     const [dotPosition, setDotPosition] = useState<Maybe<IDotPosition>>(undefined);
@@ -41,6 +43,10 @@ export default function Compass(): JSX.Element {
     useEffect(
         () => {
             if (playing && recording) setRecording(false);
+            if (!playing && !recording) {
+                setAudioAnalysis(undefined);
+                setDotPosition(undefined);
+            }
         },
         [playing]
     );
@@ -52,6 +58,8 @@ export default function Compass(): JSX.Element {
             if (playing) setPlaying(false);
             if (audioAnalysis) setAudioAnalysis(undefined);
             if (dotPosition) setDotPosition(undefined);
+            setPlayCurPos(0);
+            setLastCurPos(0);
         }, [fullAudioBuffData]
     )
 
@@ -59,21 +67,47 @@ export default function Compass(): JSX.Element {
         () => {
             updateDotPosition();
         },
-        [audioAnalysis]
+        [audioAnalysis, fullAudioBuffData]
     )
+
+    useEffect(() => {
+        if (playing && !recording) {
+            setAudioAnalysis(analyzeStoredAudio());
+            setLastCurPos(playCurPos);
+        }
+    }, [playCurPos])
+
+    const analyzeStoredAudio = (): Maybe<IAudioRecorderAnalysisOutput> => {
+        if (!fullAudioBuffData?.audio || !fullAudioBuffData?.raw || !playing || recording) return;
+
+        const elementsPerSec = fullAudioBuffData.raw.length / fullAudioBuffData.durationSecs;
+        const startIdx = Math.floor((lastCurPos ?? 0) * elementsPerSec);
+        const endIdx = Math.floor((playCurPos ?? 0) * elementsPerSec);
+        if (startIdx >= endIdx) return; // No change in position or we have skipped backwards
+
+        const audioSlice = fullAudioBuffData?.raw?.slice(startIdx, endIdx);
+        return analyzeAudio(fullAudioBuffData.analyzer, fullAudioBuffData.ctx.sampleRate, audioSlice);
+    }
 
     const updateDotPosition = async (): Promise<void> => {
         setDotPosition(await calculateDotPosition());
     }
 
     const calculateDotPosition = async (): Promise<Maybe<IDotPosition>> => {
-        const isRecording = await getLatestState(setRecording)
-        if (!isRecording || !compassRef?.current || (!audioAnalysis?.pitchHz && audioAnalysis?.pitchHz !== 0)) return;
+        if (!compassRef?.current || (!audioAnalysis?.pitchHz && audioAnalysis?.pitchHz !== 0)) return;
+
+        let isRecording = false; let isPlaying = false;
+        await Promise.all([
+            getLatestState(setRecording).then((recording) => { isRecording = recording }),
+            getLatestState(setPlaying).then((playing) => { isPlaying = playing })
+        ]);
+        if (!isPlaying && !isRecording) return;
+
         const pitch = clamp(audioAnalysis.pitchHz, PITCH_AXIS.limits.lower.val, PITCH_AXIS.limits.upper.val);
         const resonance = clamp((RESONANCE_AXIS.limits.upper.val - RESONANCE_AXIS.limits.lower.val) / 2, RESONANCE_AXIS.limits.lower.val, RESONANCE_AXIS.limits.upper.val);
 
-        const pitchPercent = (pitch) / (PITCH_AXIS.limits.upper.val - PITCH_AXIS.limits.lower.val);
-        const resonancePercent = (resonance) / (RESONANCE_AXIS.limits.upper.val - RESONANCE_AXIS.limits.lower.val);
+        const pitchPercent = clamp(pitch / (PITCH_AXIS.limits.upper.val - PITCH_AXIS.limits.lower.val), 0, 1);
+        const resonancePercent = clamp(resonance / (RESONANCE_AXIS.limits.upper.val - RESONANCE_AXIS.limits.lower.val), 0, 1);
 
         // const pitchPercent = 0.5;
         // const resonancePercent = 0.5;
@@ -93,6 +127,7 @@ export default function Compass(): JSX.Element {
     const compassControls = (): JSX.Element => {
         /** @returns Audio player if there is a recorded audio buffer */
         const player = (): JSX.Element => {
+            console.log({ fullAudioBuffData });
             if (!fullAudioBuffData?.audio || fullAudioBuffData?.durationSecs <= 0) return <></>;
             return (
                 <AudioPlayer
