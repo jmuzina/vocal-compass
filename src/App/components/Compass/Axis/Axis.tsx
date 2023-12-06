@@ -1,8 +1,8 @@
 import React from 'react';
 import './Axis.scss';
-import { type IAxisProps } from '../../../models/Axis';
+import { type AxisProps } from '../../../models/Axis/Axis';
 
-const Axis: React.FC<{ axis: IAxisProps, sizeEm: number }> = ({ axis, sizeEm }) => {
+const Axis: React.FC<{ axis: AxisProps, sizeEm: number }> = ({ axis, sizeEm }) => {
     const axisStyle: {
         width?: string
         height?: string
@@ -20,12 +20,12 @@ const Axis: React.FC<{ axis: IAxisProps, sizeEm: number }> = ({ axis, sizeEm }) 
             <div className="line">
                 <div className="axis-endpoint axis-start">
                     <i className={`arrow start-arrow pi pi-${beginningArrowClass}`}></i>
-                    <span className="start-label endpoint-label">{axis.limits.lower.val}</span>
+                    <span className="start-label endpoint-label">{axis.range.min.displayedVal}</span>
                 </div>
                 <span className="axis-label">{axis.label} ({axis.unit})</span>
                 <div className="axis-endpoint axis-end">
                     <i className={`arrow end-arrow pi pi-${endingArrowClass}`}></i>
-                    <span className="end-label endpoint-label">{axis.limits.upper.val}</span>
+                    <span className="end-label endpoint-label">{axis.range.max.displayedVal}</span>
                 </div>
             </div>
         </div>

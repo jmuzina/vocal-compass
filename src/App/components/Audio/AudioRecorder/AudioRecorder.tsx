@@ -8,16 +8,17 @@ import MicOff from '@mui/icons-material/MicOff';
 import Mic from '@mui/icons-material/Mic';
 import { Button } from 'primereact/button';
 import { toast } from 'react-toastify';
-import { type IAudioRecorderAnalysisOutput, type IAudioRecorderAudioCompletionOutput } from '../../../models/AudioRecorder';
 import { getLatestState } from '../../../util/async-utils';
-import { analyzeAudio, calculateFormantFrequency, calculatePitchFromUint8, nodesAreConnected, uint8ToFloat32 } from '../../../util/audio-utils';
+import { analyzeAudio, nodesAreConnected } from '../../../util/audio-utils';
 import { readBlobAsUint8Array } from '../../../util/blob-utils';
+import { AudioRecorderAudioCompletionOutput } from '../../../models/Audio/CompletionOutput';
+import { type AudioRecorderAnalysisOutput } from '../../../models/Audio/AnalysisOutput';
 
 interface AudioRecorderProps {
     recording: boolean
     onRecordingChange: (isRecording: boolean) => void
-    onRecordingCompleted?: (output: IAudioRecorderAudioCompletionOutput) => void
-    onNewAnalysisAvailable?: (output: IAudioRecorderAnalysisOutput) => void
+    onRecordingCompleted?: (output: AudioRecorderAudioCompletionOutput) => void
+    onNewAnalysisAvailable?: (output: AudioRecorderAnalysisOutput) => void
     disabled?: boolean
 }
 
@@ -32,7 +33,7 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
     const [recorder, setRecorder] = useState<Maybe<MediaRecorder>>(undefined);
     const [recordingSummaryText, setRecordingSummaryText] = useState<string>('');
     const [summaryUpdateInterval, setSummaryUpdateInterval] = useState<Maybe<NodeJS.Timeout>>(undefined);
-    const [enqueuedFullAudioBuffData, setEnqueuedFullAudioBuffData] = useState<Maybe<IAudioRecorderAudioCompletionOutput>>(undefined);
+    const [enqueuedFullAudioBuffData, setEnqueuedFullAudioBuffData] = useState<Maybe<AudioRecorderAudioCompletionOutput>>(undefined);
     const [analyzingAudio, setAnalyzingAudio] = useState(false);
 
     // Stop playing audio when mic state changes
@@ -94,7 +95,7 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
         setRecordingSummaryText('00:00');
     }
 
-    const processAudioBlobEvent = async ($evt: BlobEvent): Promise<Maybe<IAudioRecorderAudioCompletionOutput>> => {
+    const processAudioBlobEvent = async ($evt: BlobEvent): Promise<Maybe<AudioRecorderAudioCompletionOutput>> => {
         let latestAnalyzer: Maybe<AnalyserNode>; let latestAudioCtx: Maybe<AudioContext>;
         await Promise.all([getLatestState(setAnalyzer).then((a) => { latestAnalyzer = a }), getLatestState(setAudioCtx).then((c) => { latestAudioCtx = c })]);
         if (!latestAnalyzer || !latestAudioCtx) return;
@@ -107,14 +108,14 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
                 .then((b) => { rawBuf = b })
         ]);
 
-        const output: IAudioRecorderAudioCompletionOutput = {
+        const output: AudioRecorderAudioCompletionOutput = new AudioRecorderAudioCompletionOutput({
             audio: $evt.data,
             durationSecs: moment().diff(lastStartRecordingTime, 'milliseconds') / 1000,
             raw: rawBuf,
             analyzer: latestAnalyzer,
             ctx: latestAudioCtx,
             fromChild: true
-        };
+        });
         setEnqueuedFullAudioBuffData(output);
         return output;
     }

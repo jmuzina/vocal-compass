@@ -7,8 +7,6 @@
     "@emotion/styled": "^11.11.0",
     "@mui/icons-material": "^5.14.19",
     "@mui/material": "^5.14.19",
-    "fft-js": "^0.0.12",
-    "fft.js": "^4.0.4",
     "js-cookie": "^3.0.5",
     "moment": "^2.29.4",
     "node-fetch": "^2.6.12",

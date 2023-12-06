@@ -1,9 +1,8 @@
-import { type IAudioRecorderAnalysisOutput } from '../models/AudioRecorder';
-import { clamp } from './math-utils';
+import { SPEED_OF_SOUND } from '../constants/Audio';
+import { AudioRecorderAnalysisOutput } from '../models/Audio/AnalysisOutput';
+import { type Maybe } from '../models/Maybe';
 
-import FFT from 'fft.js';
-
-export const calculatePitchFromFloat32 = (float32Array: Float32Array, sampleRate: number): number => {
+export const calculatePitchFromFloat32 = (float32Array: Float32Array, sampleRate: number): Maybe<number> => {
     const pitchDetectionThreshold = 0.2;
 
     const peakIndex = findPeakIndex(float32Array, pitchDetectionThreshold);
@@ -13,10 +12,10 @@ export const calculatePitchFromFloat32 = (float32Array: Float32Array, sampleRate
         return peakIndex * hertzPerBin;
     }
 
-    return -1; // No peak found
+    return;
 };
 
-export const calculatePitchFromUint8 = (uint8Array: Uint8Array, sampleRate: number): number => {
+export const calculatePitchFromUint8 = (uint8Array: Uint8Array, sampleRate: number): Maybe<number> => {
     const float32Array = new Float32Array(uint8Array);
     return calculatePitchFromFloat32(float32Array, sampleRate);
 };
@@ -58,194 +57,49 @@ export const uint8ToFloat32 = (uint8Array: Uint8Array): Float32Array => {
     return floatArray;
 };
 
-// export const calculateLPCCoefficients = (frequencyData: Float32Array, order: number): Float32Array => {
-//     const numCoefficients = order + 1;
+export const getVocalTractLength = (firstFormantHz: number): Maybe<number> => {
+    // Calculate vocal tract length in meters
+    const vocalTractLength = SPEED_OF_SOUND / (2 * firstFormantHz);
 
-//     // Autocorrelation calculation
-//     const autocorrelation = new Float32Array(numCoefficients);
+    // Convert vocal tract length to centimeters
+    const vocalTractLengthInCentimeters = vocalTractLength * 100;
 
-//     for (let i = 0; i < numCoefficients; i++) {
-//         let sum = 0;
-
-//         for (let j = 0; j < frequencyData.length - i; j++) {
-//             sum += frequencyData[j] * frequencyData[j + i];
-//         }
-
-//         autocorrelation[i] = sum;
-//     }
-
-//     // Levinson-Durbin recursion
-//     const lpcCoefficients = new Float32Array(numCoefficients).fill(0);
-
-//     let error = autocorrelation[0];
-
-//     for (let i = 1; i < numCoefficients; i++) {
-//         let lambda = autocorrelation[i];
-
-//         for (let j = 1; j < i; j++) {
-//             lambda -= lpcCoefficients[j] * autocorrelation[i - j];
-//         }
-
-//         const alpha = lambda / error;
-
-//         lpcCoefficients[i] = alpha;
-
-//         for (let j = 1; j <= i / 2; j++) {
-//             const tmp = lpcCoefficients[j];
-//             lpcCoefficients[j] -= alpha * lpcCoefficients[i - j];
-//             lpcCoefficients[i - j] -= alpha * tmp;
-//         }
-
-//         error *= 1 - alpha * alpha;
-//     }
-
-//     return lpcCoefficients.map((coefficient) => clamp(coefficient, -1, 1))
-// };
-
-// export const calculateLPCCoefficients = (frequencyData: Float32Array, order: number): Float32Array => {
-//     const numCoefficients = order + 1;
-
-//     // Autocorrelation calculation
-//     const autocorrelation = new Float32Array(numCoefficients);
-
-//     for (let i = 0; i < numCoefficients; i++) {
-//         for (let j = 0; j < frequencyData.length - i; j++) {
-//             autocorrelation[i] += frequencyData[j] * frequencyData[j + i];
-//         }
-//     }
-
-//     // Levinson-Durbin recursion
-//     const lpcCoefficients = new Float32Array(numCoefficients).fill(0);
-//     const reflectionCoefficients = new Float32Array(numCoefficients);
-
-//     let error = autocorrelation[0];
-
-//     for (let i = 1; i < numCoefficients; i++) {
-//         let lambda = autocorrelation[i];
-
-//         for (let j = 1; j < i; j++) {
-//             lambda -= lpcCoefficients[j] * autocorrelation[i - j];
-//         }
-
-//         const alpha = lambda / error;
-
-//         reflectionCoefficients[i] = alpha;
-
-//         for (let j = 1; j <= i; j++) {
-//             lpcCoefficients[j] += alpha * lpcCoefficients[i - j];
-//         }
-
-//         error *= 1 - alpha * alpha;
-//     }
-
-//     return reflectionCoefficients.map((coefficient) => clamp(coefficient, -1, 1))
-// };
-
-export const calculateLPCCoefficients = (audioSignal: Float32Array, order: number): number[] => {
-    const numCoefficients = order + 1;
-
-    // Autocorrelation calculation
-    const autocorrelation = new Float32Array(numCoefficients);
-
-    for (let i = 0; i < numCoefficients; i++) {
-        let sum = 0;
-
-        for (let j = 0; j < audioSignal.length - i; j++) {
-            sum += audioSignal[j] * audioSignal[j + i];
-        }
-
-        autocorrelation[i] = sum;
-    }
-
-    // Levinson-Durbin recursion
-    const lpcCoefficients = new Float32Array(numCoefficients).fill(0);
-
-    let error = autocorrelation[0];
-
-    for (let i = 1; i < numCoefficients; i++) {
-        let lambda = autocorrelation[i];
-
-        for (let j = 1; j < i; j++) {
-            lambda -= lpcCoefficients[j] * autocorrelation[i - j];
-        }
-
-        const alpha = lambda / error;
-
-        lpcCoefficients[i] = alpha;
-
-        for (let j = 1; j <= i / 2; j++) {
-            const tmp = lpcCoefficients[j];
-            lpcCoefficients[j] -= alpha * lpcCoefficients[i - j];
-            lpcCoefficients[i - j] -= alpha * tmp;
-        }
-
-        error *= 1 - alpha * alpha;
-    }
-
-    // Ensure coefficients are within the valid range [-1, 1]
-    const clampedCoefficients = lpcCoefficients.map((coefficient) => clamp(coefficient, -1, 1));
-
-    // Convert to a regular number[] array
-    const coefficientsArray: number[] = Array.from(clampedCoefficients);
-
-    return coefficientsArray;
-};
+    return vocalTractLengthInCentimeters;
+}
 
 export const calculateFormantFrequency = (
-    signal: Float32Array,
-    sampleRate: number,
-    fftSize: number
-): number => {
-    // Perform Fast Fourier Transform (FFT) to get the frequency spectrum
-    const fft = new FFT(fftSize);
-    const spectrum = new Float32Array(signal.length);
+    signal: Uint8Array,
+    lpcOrder = 10
+): Maybe<number> => {
+    // Convert Uint8Array to Float32Array
+    const floatSignal = uint8ToFloat32(signal);
 
-    // Copy audioSignal into spectrum and apply Hann window
-    for (let i = 0; i < signal.length; i++) {
-        const cosArg = (2 * Math.PI * i) / (signal.length - 1);
-        const hannWindow = 0.5 * (1 - Math.cos(cosArg));
-        spectrum[i] = signal[i] * hannWindow;
-    }
+    // @todo  Perform LPC analysis on `floatSignal` idek how but this is the key to the whole thing
 
-    const out = fft.createComplexArray();
+    const formantFrequencies = [110, 220, 330, 440];
 
-    // Zero-fill the imaginary part
-    for (let i = 0; i < fftSize; i++) {
-        out[i * 2 + 1] = 0;
-    }
+    if (!formantFrequencies.length) return;
 
-    fft.realTransform(spectrum, out);
+    const firstFormantHz = formantFrequencies[0];
 
-    // Find the index of the maximum value in the spectrum
-    let maxIndex = 0;
-    let maxValue = spectrum[0];
-
-    for (let i = 1; i < spectrum.length; i++) {
-        if (spectrum[i] > maxValue) {
-            maxValue = spectrum[i];
-            maxIndex = i;
-        }
-    }
-
-    // Convert the index to frequency using the Nyquist frequency
-    const nyquist = sampleRate / 2;
-    const frequency = (maxIndex / signal.length) * nyquist;
-
-    // console.log({ signal, sampleRate, fftSize, fft, spectrum, out, maxIndex, maxValue, nyquist, frequency });
-
-    return frequency;
+    // Get the pitch of the first formant
+    return firstFormantHz
 };
 
 export const analyzeAudio = (
     analyzer: AnalyserNode,
     sampleRate: number,
     buff: Uint8Array = new Uint8Array(analyzer.frequencyBinCount)
-): IAudioRecorderAnalysisOutput => {
+): AudioRecorderAnalysisOutput => {
     analyzer.getByteFrequencyData(buff);
 
     const pitchHz = calculatePitchFromUint8(buff, sampleRate);
+    const firstFormantHz = calculateFormantFrequency(buff);
+    const vocalTractLengthCm = (firstFormantHz !== undefined && firstFormantHz !== null) ? getVocalTractLength(firstFormantHz) : undefined;
 
-    return { pitchHz, firstFormantHz: 0 };
+    const analysis = new AudioRecorderAnalysisOutput({ pitchHz, vocalTractLengthCm });
+
+    return analysis;
 };
 
 export const nodesAreConnected = (node1: AudioNode, node2: AudioNode): boolean => {

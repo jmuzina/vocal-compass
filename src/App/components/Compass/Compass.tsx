@@ -5,19 +5,22 @@ import Axis from './Axis/Axis';
 import { type Maybe } from '../../models/Maybe';
 import AudioPlayer from '../Audio/AudioPlayer/AudioPlayer';
 import AudioRecorder from '../Audio/AudioRecorder/AudioRecorder';
-import { type IAudioRecorderAnalysisOutput, type IAudioRecorderAudioCompletionOutput } from '../../models/AudioRecorder';
-import { type IAxisProps } from '../../models/Axis';
-import { AXES, PITCH_AXIS, RESONANCE_AXIS } from '../../constants/Axes';
-import { clamp } from '../../util/math-utils';
+import { AXES } from '../../constants/Axes';
 import { getLatestState } from '../../util/async-utils';
 import { COLOR_EXTREMITIES } from '../../constants/Colors';
 import { interpolateHexColors } from '../../util/style-utils';
 import { analyzeAudio } from '../../util/audio-utils';
+import { type AudioRecorderAnalysisOutput } from '../../models/Audio/AnalysisOutput';
+import { type AxisProps } from '../../models/Axis/Axis';
+import { type AudioRecorderAudioCompletionOutput } from '../../models/Audio/CompletionOutput';
+
+if (AXES.length !== 2) throw new Error('Compass component requires exactly two axes');
 
 /** Size in em of the axes. This is the width for the vertical axis, height for the horizontal axis. */
 const AXIS_SIZE = 0.5;
 
-interface IDotPosition { x: number, y: number }
+interface IDotScaleData { raw: number, ratio: number, coordinatePx: number, fullDimensionPx: number }
+interface IDotPositionalData { horizontal: IDotScaleData, vertical: IDotScaleData }
 
 export default function Compass(): JSX.Element {
     const compassRef = useRef<HTMLDivElement>(null);
@@ -25,9 +28,9 @@ export default function Compass(): JSX.Element {
     const [playing, setPlaying] = useState(false);
     const [playCurPos, setPlayCurPos] = useState<number>(0);
     const [lastCurPos, setLastCurPos] = useState<number>(0);
-    const [fullAudioBuffData, setFullAudioBuffData] = useState<Maybe<IAudioRecorderAudioCompletionOutput>>(undefined);
-    const [audioAnalysis, setAudioAnalysis] = useState<Maybe<IAudioRecorderAnalysisOutput>>(undefined);
-    const [dotPosition, setDotPosition] = useState<Maybe<IDotPosition>>(undefined);
+    const [fullAudioBuffData, setFullAudioBuffData] = useState<Maybe<AudioRecorderAudioCompletionOutput>>(undefined);
+    const [audioAnalysis, setAudioAnalysis] = useState<Maybe<AudioRecorderAnalysisOutput>>(undefined);
+    const [dotPosition, setDotPosition] = useState<Maybe<IDotPositionalData>>(undefined);
 
     // Stop playing audio when recording starts
     useEffect(
@@ -77,7 +80,7 @@ export default function Compass(): JSX.Element {
         }
     }, [playCurPos])
 
-    const analyzeStoredAudio = (): Maybe<IAudioRecorderAnalysisOutput> => {
+    const analyzeStoredAudio = (): Maybe<AudioRecorderAnalysisOutput> => {
         if (!fullAudioBuffData?.audio || !fullAudioBuffData?.raw || !playing || recording) return;
 
         const elementsPerSec = fullAudioBuffData.raw.length / fullAudioBuffData.durationSecs;
@@ -93,7 +96,7 @@ export default function Compass(): JSX.Element {
         setDotPosition(await calculateDotPosition());
     }
 
-    const calculateDotPosition = async (): Promise<Maybe<IDotPosition>> => {
+    const calculateDotPosition = async (): Promise<Maybe<IDotPositionalData>> => {
         if (!compassRef?.current || (!audioAnalysis?.pitchHz && audioAnalysis?.pitchHz !== 0)) return;
 
         let isRecording = false; let isPlaying = false;
@@ -103,19 +106,22 @@ export default function Compass(): JSX.Element {
         ]);
         if (!isPlaying && !isRecording) return;
 
-        const pitch = clamp(audioAnalysis.pitchHz, PITCH_AXIS.limits.lower.val, PITCH_AXIS.limits.upper.val);
-        const resonance = clamp((RESONANCE_AXIS.limits.upper.val - RESONANCE_AXIS.limits.lower.val) / 2, RESONANCE_AXIS.limits.lower.val, RESONANCE_AXIS.limits.upper.val);
+        const retVal: IDotPositionalData = {
+            horizontal: { raw: 0, ratio: 0, coordinatePx: 0, fullDimensionPx: compassRef.current.clientWidth },
+            vertical: { raw: 0, ratio: 0, coordinatePx: 0, fullDimensionPx: compassRef.current.clientHeight }
+        };
 
-        const pitchPercent = clamp(pitch / (PITCH_AXIS.limits.upper.val - PITCH_AXIS.limits.lower.val), 0, 1);
-        const resonancePercent = clamp(resonance / (RESONANCE_AXIS.limits.upper.val - RESONANCE_AXIS.limits.lower.val), 0, 1);
+        AXES.forEach((axis) => {
+            const scale: IDotScaleData = retVal[axis.dimension];
+            scale.ratio = axis.getRatioAlongRangeFromAnalysis(audioAnalysis, true);
+            scale.coordinatePx = scale.ratio * scale.fullDimensionPx;
+        })
 
-        // const pitchPercent = 0.5;
-        // const resonancePercent = 0.5;
+        // Slight adjustments for reasons to be determined
+        retVal.horizontal.coordinatePx -= 2;
+        retVal.vertical.coordinatePx -= 13;
 
-        const pitchCoord = (pitchPercent * compassRef.current.clientHeight) - 13;
-        const resonanceCoord = (resonancePercent * compassRef.current.clientWidth) - 2;
-
-        return { x: resonanceCoord, y: pitchCoord };
+        return retVal;
     }
 
     const deleteAudio = (): void => {
@@ -127,7 +133,6 @@ export default function Compass(): JSX.Element {
     const compassControls = (): JSX.Element => {
         /** @returns Audio player if there is a recorded audio buffer */
         const player = (): JSX.Element => {
-            console.log({ fullAudioBuffData });
             if (!fullAudioBuffData?.audio || fullAudioBuffData?.durationSecs <= 0) return <></>;
             return (
                 <AudioPlayer
@@ -163,15 +168,15 @@ export default function Compass(): JSX.Element {
         background: `linear-gradient(to top right, ${COLOR_EXTREMITIES.MASCULINE}, ${COLOR_EXTREMITIES.FEMININE})`
     };
 
-    const axisElementFactory = (axis: IAxisProps): JSX.Element => {
+    const axisElementFactory = (axis: AxisProps): JSX.Element => {
         return (
             <Axis axis={axis} sizeEm={AXIS_SIZE}/>
         );
     };
 
-    const axisValueColor = (axis: IAxisProps): string => {
+    const axisValueColor = (axis: AxisProps): string => {
         if (!audioAnalysis) return 'white';
-        const axisPercent = clamp(axis.rawValueGetter(audioAnalysis), axis.limits.lower.val, axis.limits.upper.val) / (axis.limits.upper.val - axis.limits.lower.val);
+        const axisPercent = axis.getRatioAlongRangeFromAnalysis(audioAnalysis, true);
         const color = interpolateHexColors(COLOR_EXTREMITIES.MASCULINE, COLOR_EXTREMITIES.FEMININE, axisPercent);
         return color;
     }
@@ -180,18 +185,18 @@ export default function Compass(): JSX.Element {
         if (!dotPosition) return (<></>);
 
         const dotStyle = {
-            left: `${dotPosition.x}px`,
-            bottom: `${dotPosition.y}px`
+            left: `${dotPosition.horizontal.coordinatePx}px`,
+            bottom: `${dotPosition.vertical.coordinatePx}px`
         };
 
         const dotDetail = (): JSX.Element => {
-            if ((!audioAnalysis?.pitchHz && audioAnalysis?.pitchHz !== 0) || (!audioAnalysis?.firstFormantHz && audioAnalysis?.firstFormantHz !== 0)) return <></>;
-            const detailAxisFactory = (axis: IAxisProps): JSX.Element => {
+            if ((!audioAnalysis?.pitchHz && audioAnalysis?.pitchHz !== 0) || (!audioAnalysis?.vocalTractLengthCm && audioAnalysis?.vocalTractLengthCm !== 0)) return <></>;
+            const detailAxisFactory = (axis: AxisProps): JSX.Element => {
                 return (
                     <div className={`dot-detail-item dot-detail-${axis.label.toLowerCase()}`}>
                         <span className="dot-detail-item-text dot-detail-item-label">{axis.label}: </span>
                         <span className="dot-detail-item-text dot-detail-item-value" style={{ color: axisValueColor(axis) }}>
-                            {axis.formattedValueGeter(audioAnalysis)}
+                            {axis.getFormattedValueFromAnalysis(audioAnalysis, { clamped: true, precision: 0 })}
                             <span className="dot-detail-item-text dot-detail-item-unit"> {axis.unit}</span>
                         </span>
 
