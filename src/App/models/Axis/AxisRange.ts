@@ -1,8 +1,8 @@
 import { clamp } from '../../util/math-utils';
-import { type AxisDataRelationship } from './AxisDataRelationship/AxisDataRelationship';
+import { AxisDataRelationship } from './AxisDataRelationship/AxisDataRelationship';
 import { DirectAxisDataRelationship } from './AxisDataRelationship/AxisDirectDataRelationship';
-import { type AxisLimit } from './AxisLimit';
-import { type AxisScale } from './AxisScale/AxisScale';
+import { AxisLimit } from './AxisLimit';
+import { AxisScale } from './AxisScale/AxisScale';
 
 export interface IAxisRangeCtorOpts {
     min: AxisLimit
@@ -16,6 +16,13 @@ export class AxisRange implements IAxisRangeCtorOpts {
     max!: AxisLimit;
     scale!: AxisScale;
     dataRelationship: AxisDataRelationship;
+
+    static Equals(a: AxisRange, b: AxisRange): boolean {
+        return AxisLimit.Equals(a.min, b.min) &&
+            AxisLimit.Equals(a.max, b.max) &&
+            AxisScale.Equals(a.scale, b.scale) &&
+            AxisDataRelationship.Equals(a.dataRelationship, b.dataRelationship)
+    }
 
     get range(): number {
         return Math.max(0, this.max.calcLimit - this.min.calcLimit);

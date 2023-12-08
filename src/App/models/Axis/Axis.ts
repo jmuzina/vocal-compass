@@ -1,5 +1,5 @@
 import { type AudioRecorderAnalysisOutput } from '../Audio/AnalysisOutput';
-import { type AxisRange } from './AxisRange';
+import { AxisRange } from './AxisRange';
 
 export type AxisDimensionDirection = 'horizontal' | 'vertical';
 
@@ -16,13 +16,21 @@ export abstract class AxisProps implements IAxisPropsCtorOpts {
     abstract dimension: AxisDimensionDirection;
     abstract range: AxisRange;
 
+    abstract getRawValueFromAnalysis(analysis: AudioRecorderAnalysisOutput): number;
+
+    static Equals(a: AxisProps, b: AxisProps): boolean {
+        return a.label === b.label &&
+            a.unit === b.unit &&
+            a.dimension === b.dimension &&
+            AxisRange.Equals(a.range, b.range)
+    }
+
     getFormattedValueFromAnalysis(analysis: AudioRecorderAnalysisOutput, opts?: { clamped?: boolean, precision?: number }): string {
         const rawVal = this.getValAlongRangeFromAnalysis(analysis, !!opts?.clamped);
         let retVal = rawVal.toString();
         if (opts && 'precision' in opts) retVal = rawVal.toFixed(opts.precision);
         return retVal;
     }
-    abstract getRawValueFromAnalysis(analysis: AudioRecorderAnalysisOutput): number;
 
     getRawValAlongAxisFromAnalysis(analysis: AudioRecorderAnalysisOutput): number {
         return this.getRawValAlongAxisFromRawVal(this.getRawValueFromAnalysis(analysis));
