@@ -163,7 +163,10 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
                 }
                 setAnalyzingAudio(true);
 
-                const analysis = analyzeAudio(newAnalyzer, newCtx.sampleRate, slidingWindowAudioBuffer);
+                latestAnalyzer.getByteFrequencyData(slidingWindowAudioBuffer);
+
+                const analysis = analyzeAudio(new Float32Array(slidingWindowAudioBuffer), sampleRate);
+                console.log(analysis);
                 if (onNewAnalysisAvailable) onNewAnalysisAvailable(analysis);
 
                 // Wait for the next animation frame to process the next audio buffer

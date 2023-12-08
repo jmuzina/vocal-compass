@@ -5,13 +5,13 @@ import Axis from './Axis/Axis';
 import { type Maybe } from '../../models/Maybe';
 import AudioPlayer from '../Audio/AudioPlayer/AudioPlayer';
 import AudioRecorder from '../Audio/AudioRecorder/AudioRecorder';
-import { AXES } from '../../constants/Axes';
+import { AXES, RESONANCE_AXIS } from '../../constants/Axes';
 import { getLatestState } from '../../util/async-utils';
 import { COLOR_EXTREMITIES } from '../../constants/Colors';
 import { interpolateHexColors } from '../../util/style-utils';
 import { analyzeAudio } from '../../util/audio-utils';
 import { type AudioRecorderAnalysisOutput } from '../../models/Audio/AnalysisOutput';
-import { type AxisProps } from '../../models/Axis/Axis';
+import { AxisProps } from '../../models/Axis/Axis';
 import { type AudioRecorderAudioCompletionOutput } from '../../models/Audio/CompletionOutput';
 
 if (AXES.length !== 2) throw new Error('Compass component requires exactly two axes');
@@ -113,6 +113,9 @@ export default function Compass(): JSX.Element {
 
         AXES.forEach((axis) => {
             const scale: IDotScaleData = retVal[axis.dimension];
+            if (AxisProps.Equals(axis, RESONANCE_AXIS)) {
+                console.log('time to debug the resonance yknow', scale);
+            }
             scale.ratio = axis.getRatioAlongRangeFromAnalysis(audioAnalysis, true);
             scale.coordinatePx = scale.ratio * scale.fullDimensionPx;
         })
