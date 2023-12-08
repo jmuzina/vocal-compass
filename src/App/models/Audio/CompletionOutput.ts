@@ -1,7 +1,7 @@
 export interface IAudioRecorderAnalysisOutputCtorOpts {
     audio: Blob
     durationSecs: number
-    raw: Uint8Array
+    raw: Float32Array
     analyzer: AnalyserNode
     ctx: AudioContext
     fromChild?: boolean
@@ -10,7 +10,7 @@ export interface IAudioRecorderAnalysisOutputCtorOpts {
 export class AudioRecorderAudioCompletionOutput implements IAudioRecorderAnalysisOutputCtorOpts {
     audio!: Blob;
     durationSecs!: number;
-    raw!: Uint8Array;
+    raw!: Float32Array;
     analyzer!: AnalyserNode;
     ctx!: AudioContext;
     fromChild?: boolean | undefined;

@@ -89,7 +89,7 @@ export default function Compass(): JSX.Element {
         if (startIdx >= endIdx) return; // No change in position or we have skipped backwards
 
         const audioSlice = fullAudioBuffData?.raw?.slice(startIdx, endIdx);
-        return analyzeAudio(fullAudioBuffData.analyzer, fullAudioBuffData.ctx.sampleRate, audioSlice);
+        return analyzeAudio(audioSlice, fullAudioBuffData.ctx.sampleRate);
     }
 
     const updateDotPosition = async (): Promise<void> => {

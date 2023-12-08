@@ -1,13 +1,15 @@
-export const readBlobAsUint8Array = async (blob: Blob): Promise<Uint8Array> => {
+import { type TypedArrayConstructor, type AnyTypedArray } from '../types/array';
+import { ensureArrayBufferMultipleOf4 } from './array-utils';
+
+export const readBlobAsTypedArray = async <T extends AnyTypedArray>(blob: Blob, constructor: TypedArrayConstructor<T>): Promise<T> => {
     return await new Promise((resolve, reject) => {
         const reader = new FileReader();
 
         reader.onload = () => {
             if (reader.result instanceof ArrayBuffer) {
-                const uint8Array = new Uint8Array(reader.result);
-                resolve(uint8Array);
+                resolve(new constructor(ensureArrayBufferMultipleOf4(reader.result)))
             } else {
-                reject(new Error('Failed to read Blob as Uint8Array.'));
+                reject(new Error('Failed to read Blob as ArrayBuffer.'));
             }
         };
 
