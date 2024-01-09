@@ -50,18 +50,23 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ audioBlob, duration, currentPos, on
         return () => URL.revokeObjectURL(url); // Revoke the Blob URL when the component is unmounted
     }, [audioBlob]);
 
+    // binds the audio element playing/pausing state to the `isPlaying` attribute
+    useEffect(() => {
+        if (audioRef?.current) {
+            if (isPlaying) void audioRef.current.play();
+            else audioRef.current.pause();
+        }
+    }, [isPlaying])
+
+    // update the parent component whenever the currentPos updates
     if (onCurrentPosUpdate) {
         useEffect(() => {
             onCurrentPosUpdate(currentPos);
         }, [currentPos, onCurrentPosUpdate]);
     }
 
-    const handlePlayPause = (): void => {
-        const audioElement = audioRef.current;
-        if (audioElement) {
-            if (isPlaying) audioElement.pause();
-            else void audioElement.play();
-
+    const togglePlaying = (): void => {
+        if (audioRef?.current) {
             setIsPlaying(!isPlaying);
 
             // Notify the parent component about the play/pause event
@@ -70,36 +75,30 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ audioBlob, duration, currentPos, on
     };
 
     const handleClipEnded = (): void => {
-        setIsPlaying(false);
-        const audioElement = audioRef.current;
-        if (audioElement) {
-            audioElement.currentTime = 0;
-            audioElement.pause();
+        if (audioRef?.current) {
+            audioRef.current.currentTime = 0;
+            if (!loop) setIsPlaying(false);
         }
-        handlePlayPause();
         if (onCompleted) onCompleted();
     }
 
     const handleTimeUpdate = (): void => {
-        const audioElement = audioRef.current;
-        if (!audioElement) return;
+        if (!audioRef?.current) return;
         if (currentPos >= duration) handleClipEnded();
-        if (onCurrentPosUpdate) onCurrentPosUpdate(audioElement.currentTime);
+        if (onCurrentPosUpdate) onCurrentPosUpdate(audioRef.current.currentTime);
     };
 
     const handleScrubberChange = (newPos: number): void => {
-        const audioElement = audioRef.current;
-        if (audioElement) {
-            audioElement.currentTime = newPos;
-            if (onCurrentPosUpdate) onCurrentPosUpdate(audioElement.currentTime);
+        if (audioRef?.current) {
+            audioRef.current.currentTime = newPos;
+            if (onCurrentPosUpdate) onCurrentPosUpdate(audioRef.current.currentTime);
         }
     };
 
     const handleVolumeChange = (newVolume: number): void => {
-        const audioElement = audioRef.current;
-        if (audioElement) {
-            audioElement.volume = newVolume;
-            if (onVolumeUpdate) onVolumeUpdate(audioElement.volume);
+        if (audioRef?.current) {
+            audioRef.current.volume = newVolume;
+            if (onVolumeUpdate) onVolumeUpdate(audioRef.current.volume);
         }
         setVolume(newVolume);
     };
@@ -119,7 +118,7 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ audioBlob, duration, currentPos, on
                     disabled={disabled}
                     className={playButtonClass()}
                     icon={playIcon()}
-                    onClick={handlePlayPause}
+                    onClick={togglePlaying}
                     data-pr-tooltip={playButtonTooltipLabel()}
                 />
             </>
@@ -127,6 +126,9 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ audioBlob, duration, currentPos, on
     };
 
     const loopButton = (): JSX.Element => {
+        const toggleLoop = (): void => {
+            setLoop(!loop);
+        };
         const baseLoopButtonClass = 'loop-button';
         const loopButtonClass = (): string => `${baseLoopButtonClass} p-button-rounded p-button-${loop ? 'info' : 'outlined'}`;
         const loopButtonTooltipLabel = (): string => loop ? 'Disable loop' : 'Enable loop';
@@ -137,14 +139,14 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ audioBlob, duration, currentPos, on
                     disabled={disabled}
                     className={loopButtonClass()}
                     icon={<Loop/>}
-                    onClick={() => setLoop(!loop)}
+                    onClick={toggleLoop}
                     data-pr-tooltip={loopButtonTooltipLabel()}
                 />
             </>
         )
     }
 
-    const deleteButton = (f = false): JSX.Element => {
+    const deleteButton = (): JSX.Element => {
         if (!onDeleted) return (<></>);
 
         const baseDeleteButtonClass = 'delete-button';
@@ -212,7 +214,7 @@ const AudioPlayer: FC<AudioPlayerProps> = ({ audioBlob, duration, currentPos, on
                         src={blobUrl}
                         onTimeUpdate={handleTimeUpdate}
                         onEnded={handleClipEnded}
-                        loop={loop}
+                        { ...{ loop } }
                     />
                     {deleteButton()}
                     {playButton()}

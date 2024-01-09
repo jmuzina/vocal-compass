@@ -6,12 +6,12 @@ import { type Maybe } from '../../models/Maybe';
 import AudioPlayer from '../Audio/AudioPlayer/AudioPlayer';
 import AudioRecorder from '../Audio/AudioRecorder/AudioRecorder';
 import { AXES, RESONANCE_AXIS } from '../../constants/Axes';
-import { getLatestState } from '../../util/async-utils';
+import AsyncUtils from '../../util/async-utils';
 import { COLOR_EXTREMITIES } from '../../constants/Colors';
 import { interpolateHexColors } from '../../util/style-utils';
 import { analyzeAudio } from '../../util/audio-utils';
 import { type AudioRecorderAnalysisOutput } from '../../models/Audio/AnalysisOutput';
-import { AxisProps } from '../../models/Axis/Axis';
+import { type AxisProps } from '../../models/Axis/Axis';
 import { type AudioRecorderAudioCompletionOutput } from '../../models/Audio/CompletionOutput';
 
 if (AXES.length !== 2) throw new Error('Compass component requires exactly two axes');
@@ -101,8 +101,8 @@ export default function Compass(): JSX.Element {
 
         let isRecording = false; let isPlaying = false;
         await Promise.all([
-            getLatestState(setRecording).then((recording) => { isRecording = recording }),
-            getLatestState(setPlaying).then((playing) => { isPlaying = playing })
+            AsyncUtils.getLatestState(setRecording).then((recording) => { isRecording = recording }),
+            AsyncUtils.getLatestState(setPlaying).then((playing) => { isPlaying = playing })
         ]);
         if (!isPlaying && !isRecording) return;
 
@@ -113,9 +113,9 @@ export default function Compass(): JSX.Element {
 
         AXES.forEach((axis) => {
             const scale: IDotScaleData = retVal[axis.dimension];
-            if (AxisProps.Equals(axis, RESONANCE_AXIS)) {
-                console.log('time to debug the resonance yknow', scale);
-            }
+            // if (AxisProps.Equals(axis, RESONANCE_AXIS)) {
+            //     console.log('time to debug the resonance yknow', scale);
+            // }
             scale.ratio = axis.getRatioAlongRangeFromAnalysis(audioAnalysis, true);
             scale.coordinatePx = scale.ratio * scale.fullDimensionPx;
         })

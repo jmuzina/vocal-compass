@@ -8,11 +8,11 @@ import MicOff from '@mui/icons-material/MicOff';
 import Mic from '@mui/icons-material/Mic';
 import { Button } from 'primereact/button';
 import { toast } from 'react-toastify';
-import { getLatestState } from '../../../util/async-utils';
-import { analyzeAudio, nodesAreConnected, uint8ToFloat32 } from '../../../util/audio-utils';
+import { analyzeAudio, nodesAreConnected } from '../../../util/audio-utils';
 import { AudioRecorderAudioCompletionOutput } from '../../../models/Audio/CompletionOutput';
 import { type AudioRecorderAnalysisOutput } from '../../../models/Audio/AnalysisOutput';
 import { readBlobAsTypedArray } from '../../../util/blob-utils';
+import AsyncUtils from '../../../util/async-utils';
 
 interface AudioRecorderProps {
     recording: boolean
@@ -42,7 +42,7 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
             const prm = recording ? startRecording() : stopRecording();
 
             void prm
-                .then(async () => await getLatestState(setRecording))
+                .then(async () => await AsyncUtils.getLatestState(setRecording))
                 .then((lastestRecording) => onRecordingChange(lastestRecording))
         },
         [recording]
@@ -56,7 +56,7 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
     }, [enqueuedFullAudioBuffData])
 
     const toggleRecording = async (): Promise<void> => {
-        const currentRecording = await getLatestState(setRecording);
+        const currentRecording = await AsyncUtils.getLatestState(setRecording);
         setRecording(!currentRecording);
     }
 
@@ -64,9 +64,9 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
     const getRecordingSummaryText = async (): Promise<string> => {
         let lastRecordingTime: Maybe<moment.Moment> = moment(); let lastRecording = false;
         await Promise.all([
-            getLatestState(setStartRecordingTime)
+            AsyncUtils.getLatestState(setStartRecordingTime)
                 .then((t) => { lastRecordingTime = t }),
-            getLatestState(setRecording)
+            AsyncUtils.getLatestState(setRecording)
                 .then((r) => { lastRecording = r })
         ]);
         if (lastRecording && lastRecordingTime?.isValid()) return formatTime(moment().diff(lastRecordingTime, 'milliseconds') / 1000);
@@ -97,12 +97,12 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
 
     const processAudioBlobEvent = async ($evt: BlobEvent): Promise<Maybe<AudioRecorderAudioCompletionOutput>> => {
         let latestAnalyzer: Maybe<AnalyserNode>; let latestAudioCtx: Maybe<AudioContext>;
-        await Promise.all([getLatestState(setAnalyzer).then((a) => { latestAnalyzer = a }), getLatestState(setAudioCtx).then((c) => { latestAudioCtx = c })]);
+        await Promise.all([AsyncUtils.getLatestState(setAnalyzer).then((a) => { latestAnalyzer = a }), AsyncUtils.getLatestState(setAudioCtx).then((c) => { latestAudioCtx = c })]);
         if (!latestAnalyzer || !latestAudioCtx) return;
 
         let lastStartRecordingTime: Maybe<moment.Moment> = moment(); let rawBuf = new Float32Array(latestAnalyzer.frequencyBinCount);
         await Promise.all([
-            getLatestState(setStartRecordingTime)
+            AsyncUtils.getLatestState(setStartRecordingTime)
                 .then((t) => { lastStartRecordingTime = t }),
             readBlobAsTypedArray<Float32Array>($evt.data, Float32Array)
                 .then((b) => {
@@ -155,10 +155,10 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
             restartSummaryInterval();
 
             const processAudio = async (): Promise<void> => {
-                const latestAnalyzingAudio = await getLatestState(setAnalyzingAudio);
+                const latestAnalyzingAudio = await AsyncUtils.getLatestState(setAnalyzingAudio);
                 if (latestAnalyzingAudio) return;
-                const latestIsRecording = await getLatestState(setRecording);
-                const latestAnalyzer = await getLatestState(setAnalyzer);
+                const latestIsRecording = await AsyncUtils.getLatestState(setRecording);
+                const latestAnalyzer = await AsyncUtils.getLatestState(setAnalyzer);
                 if (!latestIsRecording || !latestAnalyzer) {
                     // Stop processing if the microphone is turned off
                     return await stopRecording();
@@ -197,22 +197,22 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
     const stopRecording = async (): Promise<void> => {
         // Clear resources and disconnect microphone and analyzer
 
-        const streamUpdate = getLatestState(setStream).then((latestStream) => {
+        const streamUpdate = AsyncUtils.getLatestState(setStream).then((latestStream) => {
             if (latestStream) {
                 latestStream.getTracks().forEach(track => track.stop());
                 setStream(undefined);
             }
         })
 
-        const ctxUpdate = getLatestState(setAudioCtx).then(async (latestAudioCtx) => {
+        const ctxUpdate = AsyncUtils.getLatestState(setAudioCtx).then(async (latestAudioCtx) => {
             if (latestAudioCtx && latestAudioCtx.state !== 'suspended') {
                 return await latestAudioCtx.suspend();
             }
         })
 
-        const micUpdate = getLatestState(setMicrophone).then(async (latestMicrophone) => {
+        const micUpdate = AsyncUtils.getLatestState(setMicrophone).then(async (latestMicrophone) => {
             if (latestMicrophone) {
-                const latestMicrophoneAnalyzer = await getLatestState(setAnalyzer);
+                const latestMicrophoneAnalyzer = await AsyncUtils.getLatestState(setAnalyzer);
 
                 if (latestMicrophoneAnalyzer && nodesAreConnected(latestMicrophone, latestMicrophoneAnalyzer)) {
                     try {
@@ -225,7 +225,7 @@ const AudioRecorder: FC<AudioRecorderProps> = ({ onRecordingChange, onRecordingC
             }
         })
 
-        const recorderUpdate = getLatestState(setRecorder).then(async (latestRecorder) => {
+        const recorderUpdate = AsyncUtils.getLatestState(setRecorder).then(async (latestRecorder) => {
             if (latestRecorder) {
                 latestRecorder.stop();
                 setRecorder(undefined);

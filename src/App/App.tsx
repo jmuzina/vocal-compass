@@ -5,16 +5,16 @@ import LoadingSpinner from './components/LoadingSpinner/LoadingSpinner';
 import Header from './components/Header/Header';
 import Footer from './components/Footer/Footer';
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import { wait } from '@testing-library/user-event/dist/utils';
 import Compass from './components/Compass/Compass';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import AsyncUtils from './util/async-utils';
 
 const App: FC = () => {
     const { activeTheme, switchTheme } = useThemeManager();
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
-    const doFakeLoading = wait(250);
+    const doFakeLoading = AsyncUtils.wait(250);
 
     useEffect(() => {
         switchTheme(activeTheme);
